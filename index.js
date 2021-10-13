@@ -31,8 +31,8 @@ app.get('/data', cors({ origin: allowList }), (req, res) => {
   res.send({ messages, nicknames })
 })
 
-function addMessage({ msg, sender }) {
-  messages.push({ msg, sender })
+function addMessage(message) {
+  messages.push(message)
 }
 
 function addAndBroadcast(message, broadcaster) {
@@ -44,19 +44,24 @@ function announceUser(nicknames, broadcaster) {
   broadcaster.emit(EVENTS.USER_CONNECTED, nicknames)
 }
 
+function handleChatMessage(messageRcv, socket) {
+  const message = { ...messageRcv, sender: socket.id }
+  addAndBroadcast(message, socket.broadcast)
+}
+
 io.on('connection', (socket) => {
   nicknames[socket.id] = `user_${socket.id.slice(0, 4)}`
   const message = {
     msg: `User ${nicknames[socket.id]} entered the server`,
     sender: 'system bot',
+    time: new Date(),
   }
   addAndBroadcast(message, io)
   announceUser({ ...nicknames }, socket.broadcast)
 
-  socket.on(EVENTS.CHAT_MESSAGE, (msg) => {
-    const message = { msg, sender: socket.id }
-    addAndBroadcast(message, socket.broadcast)
-  })
+  socket.on(EVENTS.CHAT_MESSAGE, (message) =>
+    handleChatMessage(message, socket),
+  )
 
   socket.on('disconnect', () => {
     console.log('user disconnected')
