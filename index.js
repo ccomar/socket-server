@@ -3,6 +3,8 @@ const http = require('http')
 const { Server } = require('socket.io')
 const cors = require('cors')
 
+const { pusher } = require('./pusher')
+
 const app = express()
 const server = http.createServer(app)
 
@@ -17,6 +19,7 @@ const nicknames = {}
 const EVENTS = {
   CHAT_MESSAGE: 'CHAT_MESSAGE',
   USER_CONNECTED: 'USER_CONNECTED',
+  NEW_DATA: 'NEW_DATA',
 }
 
 app.get('/', (req, res) => {
@@ -49,6 +52,10 @@ function handleChatMessage(messageRcv, socket) {
   addAndBroadcast(message, socket.broadcast)
 }
 
+function handleNewData({ type, data }) {
+  pusher.trigger('my-channel', type, data)
+}
+
 io.on('connection', (socket) => {
   nicknames[socket.id] = `user_${socket.id.slice(0, 4)}`
   const message = {
@@ -63,11 +70,14 @@ io.on('connection', (socket) => {
     handleChatMessage(message, socket),
   )
 
+  socket.on(EVENTS.NEW_DATA, handleNewData)
+
   socket.on('disconnect', () => {
     console.log('user disconnected')
   })
 })
 
-server.listen(3000, () => {
-  console.log('listening on *:3000')
+const PORT = process.env.PORT || 5001
+server.listen(PORT, () => {
+  console.log(`listening on *:${PORT}`)
 })
